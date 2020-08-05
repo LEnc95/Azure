@@ -101,10 +101,10 @@ function GetUnexpectedEnabledPlansForUser
 
 #BEGIN: executing the script
 #the group to be processed
-$groupId = "48ca647b-7e4d-41e5-aa66-40cab1e19101"
+$groupId = "8a3af0e9-bc6d-47aa-8ad8-03cbf68bb921"
 
 #license to be removed - Office 365 E3
-$skuId = "contoso:ENTERPRISEPACK"
+$skuId = "gianteagle:SPE_F1"
 
 #minimum set of service plans we know are inherited from groups - we want to make sure that there aren't any users who have more services enabled
 #which could mean that they may lose access after we remove direct licenses

@@ -63,7 +63,7 @@ function UserHasLicenseAssignedFromGroup
 $skuId = "gianteagle:EMSPREMIUM"
 $skuname = $skuId -replace '.*:'
 $skuname
-$CSVFile = "$env:USERPROFILE\Documents\Exports\"+$skuname+"_"+$datetime+".csv" 
+$CSVFile = "$env:USERPROFILE\Documents\GitHub\_outfile\"+$skuname+"_"+$datetime+".csv" 
 #find all users that have the SKU license assigned
 $data = Get-MsolUser -All | where {$_.isLicensed -eq $true -and $_.Licenses.AccountSKUID -eq $skuId} | select `
     ObjectId, `
