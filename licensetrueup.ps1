@@ -1,0 +1,1 @@
+﻿Get-MsolUser -All:$true -filter {Licenses.AccountSkuID -like "DESKLESSPACK"}
