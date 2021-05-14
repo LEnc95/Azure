@@ -59,17 +59,32 @@ function UserHasLicenseAssignedFromGroup
     return $false
 }
 
-#the license SKU we are interested in. use Get-MsolAccountSku to see a list of all identifiers in your tenant
-$skuId = "gianteagle:Desklesspack"
-$skuname = $skuId -replace '.*:'
-$skuname
-#$CSVFile = "$env:USERPROFILE\Documents\GitHub\_outfile\"+$skuname+"_"+$datetime+".csv" 
-$CSVFile = "C:\Users\914476\OneDrive - Giant Eagle, Inc\Documents\GitHub\_outfile"+$skuname+"_"+$datetime+".csv"
-#find all users that have the SKU license assigned
-$data = Get-MsolUser -All | Where-Object {$_.isLicensed -eq $true -and $_.Licenses.AccountSKUID -eq $skuId} | Select-Object `
-    ObjectId, `
-    @{Name="SkuId";Expression={$skuId}}, `
-    @{Name="AssignedDirectly";Expression={(UserHasLicenseAssignedDirectly $_ $skuId)}}, `
-    @{Name="AssignedFromGroup";Expression={(UserHasLicenseAssignedFromGroup $_ $skuId)}}
-$CSVFile
-$data | Export-Csv $CSVFile
+$filter = "UserPrincipalName -eq 'luke.encrapera@gianteagle.com' -or UserPrincipalName -eq '1196270@gianteagle.com' -or UserPrincipalName -eq '1220069@gianteagle.com'" #-or UserPrincipalName -eq 'Lori.Neil@gianteagle.com'
+$users = Get-ADUser -Filter $filter -Properties * -SearchBase "DC=corp,DC=gianteagle,DC=com" |
+ Select-Object objectGuid, SamAccountName, displayName, employeeType, Enabled, DistinguishedName, userPrincipalName 
+ 
+$outputToFile = @("displayName;SamAccountName;employeeType;Enabled;UserPrincipalName;LicensedBy;DistinguishedName") 
+foreach($user in $users){
+    $groups = $null
+    $groupNames = @()
+    $direct = $null
+    $license = (Get-MsolUser -UserPrincipalName $user.UserPrincipalName).licenses | Where-Object {$_.AccountSkuID -eq "gianteagle:SPE_F1" -or $_.AccountSkuID -eq "gianteagle:DESKLESSPACK"}
+    If($license -ne $null){
+        if ($license.GroupsAssigningLicense.Count -eq 0)
+        {
+            $groupNames += "DirectAssignment"
+        }
+        else
+        {
+            $groups = $license.GroupsAssigningLicense
+            foreach($group in $groups){
+                $groupNames += (Get-AzureADGroup -ObjectId $group.Guid).DisplayName
+            }
+        }
+        $direct = UserHasLicenseAssignedDirectly
+        $outputToFile += "$($user.displayName);$($user.SamAccountName);$($user.employeeType);$($user.Enabled);$($user.userPrincipalName);$($groupNames -join ', ');$($user.DistinguishedName)"
+    }
+    #$outputToFile += $output
+}
+#$outputToFile | Export-Csv -Path "C:\Temp\BasicLicenseReport.csv" -NoTypeInformation -Force
+$outputToFile | Out-File -FilePath "C:\Temp\BasicLicenseReport.txt"
