@@ -54,7 +54,7 @@ function Get-SecretServerCredential {
     if($SecretID -and $SecretName) {
         Write-Host 'Both ID and Name provided, using just the ID.'
     }
-    $BaseURL = https://$SecretServerName/SecretServer
+    $BaseURL = "https://$SecretServerName/SecretServer"
     $Arglist = @{}
     if($oAuth) {
         try {
@@ -117,7 +117,7 @@ ForEach($OU in $OUs){
 ForEach($user in $users){
     #$user = Get-aduser $user.SamAccountName -Properties *
     if($user.lastLogonDate -lt (Get-Date).AddDays(-90)){ <# -and $user.DistinguishedName -ne "" #>
-        $inactive += $user
+        $inactive += $user.UserPrincipalName.ToLower()
         #https://graph.microsoft.com/beta/users?$filter=startswith(displayName,'$user.SamAccountName')&$select=displayName,signInActivity
     }
 }
@@ -139,7 +139,7 @@ $inactive | ForEach-Object {
     #endregion Authentication
 
 
-    [uri]$SignInsUrl       = https://graph.microsoft.com/v1.0/auditLogs/signIns?`$filter=userPrincipalName eq '$_'
+    [uri]$SignInsUrl       = "https://graph.microsoft.com/v1.0/auditLogs/signIns?`$filter=userPrincipalName eq '$_'"
     $SignIns               = Invoke-RestMethod -Uri $SignInsUrl.AbsoluteUri -Headers $AzureHeaders
     if($SignIns.value.Count -eq 0) {
         $InactiveUsers += $_
