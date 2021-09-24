@@ -145,4 +145,7 @@ $inactive | ForEach-Object {
         $InactiveUsers += $_
     }
 }
-$InactiveUsers 
+$CSVFile = "$env:USERPROFILE\OneDrive - Giant Eagle, Inc\Documents\GitHub\Reports\InactiveUsers_"+$DateTime+".csv" 
+$InactiveUsers | Export-Csv -Path $CSVFile -NoTypeInformation -Force | Out-String -Width 10000
+#Set-ADAccountExpiration -Identity PattiFu -DateTime "10/18/2008"
+#Get-ADGroupMember -Identity BO1Accounts | where {$_.objectClass -eq "user"} | Set-ADAccountExpiration -TimeSpan 60.0:0
