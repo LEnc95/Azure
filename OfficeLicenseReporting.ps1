@@ -26,7 +26,7 @@ $users = @('luke.encrapera@gianteagle.com', '1220069@gianteagle.com')
 
 foreach($user in $users){
 $license = Get-MsolUser -UserPrincipalName $user.Licenses | Where-Object {$_.AccountSkuID -eq "gianteagle:SPE_F1" -or $_.AccountSkuID -eq "gianteagle:DESKLESSPACK"}
-    If($license-ne $null){
+    If($null -ne $license){
         $groups = $license.GroupsAssigningLicense
         foreach($group in $groups){
             $group.Guid

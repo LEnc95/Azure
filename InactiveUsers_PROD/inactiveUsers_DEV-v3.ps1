@@ -17,29 +17,13 @@
          NAME: InactiveUsers
          
          AUTHOR: Encrapera, Luke 
+         COAUTHOR: McClure, Brandon
          DATE  : 10/1/2021
+         LastModified: 1/27/2022
          
          COMMENT: Set account expiration date to the past for users who have not signed into an on prem AD controller for 90days and have not signed into an cloud resource in 30days and user is not part of the exclusion list. 
-         
     ==========================================================================
 #>
-
-# get memebers of all licensed groups except basic
-# Get all users accounts where lastLogonDate is -ge 90days
-#New-MgTeamChannelMessage -TeamId "0a2787af-3119-4bb0-aa65-ee8271fe2db5" -ChannelId "19:33ef240236f04f43aebfbb60032d1573@thread.skype" -Body @{ Content="Hello World" }
-
-#Declare Variables
-$DateTime = Get-Date -f "yyyy-MM-dd"
-#$groups = "O365.Complete","O365.Standard","O365.StandardPlus","O365.BasicPlus","O365.Executive" 
-$OUs = "OU=Contractors,OU=Users,OU=Managed Users & Computers,DC=corp,DC=gianteagle,DC=com", "OU=Corporate Users,OU=Users,OU=Managed Users & Computers,DC=corp,DC=gianteagle,DC=com" 
-$exclusion = Get-Content -Path "C:\Users\914476\OneDrive - Giant Eagle, Inc\Documents\GitHub\_infile\inactiveExclusion.txt"
-$users = @()
-$inactive = @()
-
-#$daysOld = 90
-#$timestampUTC = (Get-Date).AddDays(-$daysOld).ToUniversalTime()
-#$timestampString = "{0:yyyyMMddHHmmss.0Z}" -f $timestampUTC
-#$timestampMDY = "{0:MM/dd/yyyy HH:mm:ss}" -f $timestampUTC
 
 #Secret Server Start
 function Get-SecretServerCredential {
@@ -136,67 +120,94 @@ function Get-SecretServerCredential {
     $SecretServerCredentials = New-Object System.Management.Automation.PSCredential($SecretServerUserName, $SecretServerPassword)
     return $SecretServerCredentials
 }
-
 [System.Management.Automation.PSCredential]$API_Keys = Get-SecretServerCredential -SecretID 31940 -TLS12
 # Secret Server End
 
+#Declare Variables
+$mypath = $MyInvocation.MyCommand.Path
+$parentDir = Split-Path $mypath -Parent
+$DateTime = Get-Date -f "yyyy-MM-dd"
+$InFileName = "inactiveExclusion.txt"
+$exclusion = Get-Content -Path "$parentDir\$inFileName"
+$users = @()
+$expiredAccounts = @() #Collection of expired users UPNs
+$limitedActivity = @()
+
 #Get active users by OU
-ForEach ($OU in $OUs) {
-    $OU_name = $OU.Split("=").split(",")[1]
-    $CSVFile = "$env:USERPROFILE\OneDrive - Giant Eagle, Inc\Documents\GitHub\Reports\" + $OU_name + "_" + $DateTime + ".csv" 
-    $users += Get-ADUser -Filter * -SearchBase $OU -Property msDS-ExternalDirectoryObjectId, UserPrincipalName, DisplayName, lastLogonDate, whenCreated, memberof <#-LDAPFilter "(whenCreated>=$timestampString)"#> | Where-Object { $_.enabled -EQ $TRUE -and $_.DistinguishedName -notlike '*OU=Leadership,*' -and !($_.memberof -like "*SG_Expired_Accounts*") -and $_.whenCreated -lt ((Get-Date).AddDays(-90)).Date }
-}
-$users = $users | Where-Object { $exclusion -notcontains $_.userPrincipalName }
-$users | Export-Csv -Path $CSVFile -NoTypeInformation -Force | Out-String -Width 10000
-Write-Host $OU " has been exported to " $CSVFile
+$OUs               = "OU=Contractors,OU=Users,OU=Managed Users & Computers,DC=corp,DC=gianteagle,DC=com", "OU=Corporate Users,OU=Users,OU=Managed Users & Computers,DC=corp,DC=gianteagle,DC=com", "OU=TCS,OU=Users,OU=Managed Users & Computers,DC=corp,DC=gianteagle,DC=com"
+$LookBack_Date     = Get-Date (Get-Date).AddDays(-90) -Format 'yyyyMMdd000000.0Z'                         # LDAP DateTime for Creation Date
+$LookBack_FileTime = (Get-Date).AddDays(-90).ToFileTime()                                                 # FileTime for Password and LastLogon
+$LDAP_Lookup       = '(&'                                                                                 # Define LDAP as a AND across all filters
+$LDAP_Lookup      += '(objectCategory=person)'                                                            # LDAP Person
+$LDAP_Lookup      += '(objectClass=user)'                                                                 # LDAP User
+$LDAP_Lookup      += '(!userAccountControl:1.2.840.113556.1.4.803:=2)'                                    # LDAP Enabled
+$LDAP_Lookup      += '(!memberOf=CN=SG_Expired_Accounts,OU=Security Groups,DC=corp,DC=gianteagle,DC=com)' # LDAP Not a member of Expired Group
+$LDAP_Lookup      += "(lastLogonTimeStamp<=$LookBack_FileTime)"                                           # LDAP LastLogon over 90 Days Ago
+$LDAP_Lookup      += "(pwdLastSet<=$LookBack_FileTime)"                                                   # LDAP Password Set over 90 Days Ago
+$LDAP_Lookup      += "(whenCreated<=$LookBack_Date)"                                                      # LDAP Created over 90 Days Ago
+$LDAP_Lookup      += ')'                                                                                  # Close LDAP
+foreach($OU in $OUs) {
+    $users += Get-ADUser -LDAPFilter $LDAP_Lookup -SearchBase $OU -Property msDS-ExternalDirectoryObjectId, UserPrincipalName, DisplayName, lastLogonDate, whenCreated, memberof  | Where-Object { $_.DistinguishedName -notlike '*OU=Leadership,*'}
+} 
+$users = $users | Where-Object { $exclusion -notcontains $_.userPrincipalName } #Trim exclusions from set
+$CSVFile = "$parentDir\" + "initSet" + "_" + $DateTime + ".csv" 
+$users | Export-Csv -Path $CSVFile -NoTypeInformation -Force | Out-String -Width 10000 #Export inital set
+Write-Host  "Initial users set has been exported to " $CSVFile #Print path to file
 
-#Foreach user if lastlogondate exceeds 90 days pull sign ins from Azure. 
-ForEach ($user in $users) {
-    #$user = Get-aduser $user.SamAccountName -Properties *
-    if ($user.lastLogonDate -lt (Get-Date).AddDays(-90)) {
-        <# -and $user.DistinguishedName -ne "" #>
-        $inactive += $user.UserPrincipalName.ToLower()
-        #https://graph.microsoft.com/beta/users?$filter=startswith(displayName,'$user.SamAccountName')&$select=displayName,signInActivity
+#SPLUNK STUFF
+$Splunk_User = $env:USERNAME
+$Splunk_Headers = @{Authorization = "Basic $([System.Convert]::ToBase64String([System.Text.Encoding]::ASCII.GetBytes("$($Splunk_User):$((Get-SecretServerCredential -SecretName "GIANTEAGLE\$($Splunk_User)" -TLS12).GetNetworkCredential().password)")))" }
+if (-not ([System.Management.Automation.PSTypeName]'ServerCertificateValidationCallback').Type) {
+    $certCallback = @"
+    using System;
+    using System.Net;
+    using System.Net.Security;
+    using System.Security.Cryptography.X509Certificates;
+    public class ServerCertificateValidationCallback
+    {
+        public static void Ignore()
+        {
+            if(ServicePointManager.ServerCertificateValidationCallback ==null)
+            {
+                ServicePointManager.ServerCertificateValidationCallback += 
+                    delegate
+                    (
+                        Object obj, 
+                        X509Certificate certificate, 
+                        X509Chain chain, 
+                        SslPolicyErrors errors
+                    )
+                    {
+                        return true;
+                    };
+            }
+        }
     }
+"@
+    Add-Type $certCallback
 }
-$CSVFile = "$env:USERPROFILE\OneDrive - Giant Eagle, Inc\Documents\GitHub\Reports\Inactive_" + $DateTime + ".txt" 
-$inactive | Out-File -FilePath $CSVFile
+[ServerCertificateValidationCallback]::Ignore()
+[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
-#$Users = @('bkamis@gianteagle.onmicrosoft.com','bmcclure@gianteagle.onmicrosoft.com','NonExistantUser@gianteagle.com','AnotherNonExistantUser@gianteagle.com')
-$InactiveUsers = @()
-$inactive | ForEach-Object {
-    #region Authentication
-    $ClientID = $API_Keys.UserName
-    $ClientSecret = $API_Keys.GetNetworkCredential().Password
-    $TenantDomain = 'fe7b0418-5142-4fcf-9440-7a0163adca0d'
-    $LoginURL = 'https://login.microsoft.com'
-    $Resource = 'https://graph.microsoft.com'
-    $TokenRequestBody = @{grant_type = "client_credentials"; resource = $Resource; client_id = $ClientID; client_secret = $ClientSecret }
-    $oAuth = Invoke-RestMethod -Method Post -Uri $LoginURL/$TenantDomain/oauth2/token?api-version=1.0 -Body $TokenRequestBody
-    $AzureHeaders = @{'Authorization' = "$($oAuth.token_type) $($oAuth.access_token)" }
-    #endregion Authentication
-
-
-    [uri]$SignInsUrl = "https://graph.microsoft.com/v1.0/auditLogs/signIns?`$filter=userPrincipalName eq '$_'"
-    $SignIns = Invoke-RestMethod -Uri $SignInsUrl.AbsoluteUri -Headers $AzureHeaders
-    if ($SignIns.value.Count -eq 0) {
-        $InactiveUsers += $_
-    }
-    #Write-Progress -Activity "Process Started" -Status "Total items processed: $_" -PercentComplete $_
+$Splunk_Body = @{
+    search      = "inputlookup 90Day_Succ_Azure_Account_Activity.csv | search user IN (`"$($Users.UserPrincipalName -join '`",`"')`") | sort 0 +user | table user operatingSystem 90dCount Latest"
+    output_mode = "json"
 }
-$OutFile = "$env:USERPROFILE\OneDrive - Giant Eagle, Inc\Documents\GitHub\Reports\InactiveUsers_" + $DateTime + ".txt" 
-$InactiveUsers | Out-File -FilePath $OutFile -Force
-$expiredAccounts = @()
-$InactiveUsers | ForEach-Object {
-    $_
-    $filter = "*" + $_ + "*"
-    $expiredAccounts += Get-aduser -Filter { UserPrincipalName -like $filter }
-    #Write-Progress -Activity "Process Started" -Status "Total items processed: $_" -PercentComplete $_
-}
-$expiredAccounts
-$expiredAccounts | ForEach-Object {
+$Splunk_Results = (Invoke-RestMethod -Uri 'https://splunk-api.gianteagle.com:8089/services/search/jobs/oneshot' -Body $Splunk_Body -Method Post -Headers $Splunk_Headers).results
+$Splunk_Results 
+
+$expiredAccounts = $users | Where-Object {$Splunk_Results.user -notcontains $_.UserPrincipalName} #Add users to array that are not present in the splunk results
+$expiredAccounts.UserPrincipalName
+
+$Filtered_Splunk_Results = $Splunk_Results | Where-Object {$_.'90dCount' -lt 4}
+$limitedActivity = $users | Where-Object {$Filtered_Splunk_Results.user -contains $_.UserPrincipalName} #Add users to array that are not present in the splunk results
+$CSVFile = "$parentDir\" + "Limited_Activity_" + "_" + $DateTime + ".csv" 
+$limitedActivity | Export-Csv -Path $CSVFile -NoTypeInformation -Force | Out-String -Width 10000 #Export limited activity set
+
+$expiredaccounts | ForEach-Object {
     #Set-ADAccountExpiration -Identity $_.SamAccountName -TimeSpan -1.0:0 #-DateTime "10/18/2008
     #Add-ADGroupMember -Identity "SG_Expired_Accounts" -Members $_.SamAccountName
-    #Write-Progress -Activity "Process Started" -Status "Total items processed: $_" -PercentComplete $_
 }
-#Get-ADGroupMember -Identity "SG_Expired_Accounts" | Where-Object {$_.objectClass -eq "user"} #| Set-ADAccountExpiration -TimeSpan -1.0:0
+$OutFileName = "UsersExpired_"
+$OutFile = "$parentDir\$OutFileName" + $DateTime + ".csv" 
+$expiredaccounts | Export-Csv -Path $OutFile -Force -NoTypeInformation
