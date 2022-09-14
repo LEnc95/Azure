@@ -23,7 +23,7 @@ $DateTime = Get-Date -f "yyyy-MM-dd HH-m"
 $reportLocations = "C:\Temp\DynamicGroupSet_$DateTime.csv","C:\Temp\reportHash_$DateTime.txt","C:\Temp\reportStores_$DateTime.txt","C:\Temp\reportAdds_$DateTime.txt","C:\Temp\whatIsSet_$DateTime.txt"
 
 #Get Dynamic group/groups by display name and export data to "C:\Temp\DynamicGroupSet_"+$DateTime+".csv"
-$targetedGroups = (Get-ADGroup -filter { DisplayName -like "*_StoreLeadership" } -SearchBase "OU=O365,OU=Exchange,DC=corp,DC=gianteagle,DC=com") 
+$targetedGroups = (Get-ADGroup -filter { DisplayName -like "*_DeliAndCheese" } -SearchBase "OU=O365,OU=Exchange,DC=corp,DC=gianteagle,DC=com") 
 $DynamicGroupSet = foreach ($group in $targetedGroups) { Get-AzureADMSGroup -Id $group.Name.Split("_")[1] }
 $DynamicGroupSet | Export-Csv -Path "C:\Temp\DynamicGroupSet_$DateTime.csv" -Force -NoTypeInformation
 foreach ($group in $DynamicGroupSet) { $storeInfo.add($group.DisplayName.Split("_")[0], $group.Id) }
@@ -53,7 +53,7 @@ $reportedAdds[0] | Out-File -FilePath "C:\Temp\reportAdds_$DateTime.txt" -Force
 #Report and Update MembershipRules with new filter and append any prior additions.
 $reportHash.Keys | foreach-object {
     $adds += " " + $reportHash["$_"]
-    $filterRule = '(user.Department -contains ' + '"' + $_ + '")' + ' -and (user.extensionAttribute3 -eq "A") -and ((user.extensionAttribute13 -In ["10005","10006","10013","10064","10070","10078","10146","00205","10158","10173","40057"]) -or (user.extensionAttribute6 -contains "10005") -or (user.extensionAttribute6 -contains "10006") -or (user.extensionAttribute6 -contains "10013") -or (user.extensionAttribute6 -contains "10064") -or (user.extensionAttribute6 -contains "10070") -or (user.extensionAttribute6 -contains "10078") -or (user.extensionAttribute6 -contains "10146") -or (user.extensionAttribute6 -contains "00205") -or (user.extensionAttribute6 -contains "10158") -or (user.extensionAttribute6 -contains "10173") -or (user.extensionAttribute6 -contains "40057"))'
+    $filterRule = '(user.Department -contains ' + '"' + $_ + '")' + ' -and (user.extensionAttribute3 -eq "A") -and ((user.extensionAttribute13 -In ["10015","10102","10118","80002","80012","67907","80133"]) -or (user.extensionAttribute6 -contains "10015") -or (user.extensionAttribute6 -contains "10102") -or (user.extensionAttribute6 -contains "10118") -or (user.extensionAttribute6 -contains "80002") -or (user.extensionAttribute6 -contains "80012") -or (user.extensionAttribute6 -contains "67907") -or (user.extensionAttribute6 -contains "80133"))'
     $out += $filterRule + $adds
     $out | Out-File -FilePath "C:\Temp\whatIsSet_$DateTime.txt" 
     $filterRule = $filterRule + $adds
@@ -95,4 +95,9 @@ user.Department -contains "0440" -and user.extensionAttribute3 -eq "A" -and (use
 ################ STORE LEADERS
 <#
 (user.Department -contains "6359") -and (user.extensionAttribute3 -eq "A") -and ((user.extensionAttribute13 -In ["10005","10006","10013","10064","10070","10078","10146","205","10158","10173","40057"]) -or (user.extensionAttribute6 -contains "10005") -or (user.extensionAttribute6 -contains "10006") -or (user.extensionAttribute6 -contains "10013") -or (user.extensionAttribute6 -contains "10064") -or (user.extensionAttribute6 -contains "10070") -or (user.extensionAttribute6 -contains "10078") -or (user.extensionAttribute6 -contains "10146") -or (user.extensionAttribute6 -contains "00205") -or (user.extensionAttribute6 -contains "10158") -or (user.extensionAttribute6 -contains "10173") -or (user.extensionAttribute6 -contains "40057"))
+#>
+
+################### DeliAndCheese
+<#
+(user.Department -contains "0035") -and (user.extensionAttribute3 -eq "A") -and ((user.extensionAttribute13 -In ["10015","10102","10118","80002","80012","67907","80133"]) -or (user.extensionAttribute6 -contains "10015") -or (user.extensionAttribute6 -contains "10102") -or (user.extensionAttribute6 -contains "10118") -or (user.extensionAttribute6 -contains "80002") -or (user.extensionAttribute6 -contains "80012") -or (user.extensionAttribute6 -contains "67907") -or (user.extensionAttribute6 -contains "80133"))
 #>
