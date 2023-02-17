@@ -1,6 +1,3 @@
-<#
-STR groups request
-#>
 <#        
     .SYNOPSIS
 
@@ -21,24 +18,6 @@ STR groups request
     ==========================================================================
 #>
 
-<#
-foreach ($group in $groups) {
-    #For each list table.
-    $DisplayName = ""
-    $Description = ""
-    $MailNickName = ""
-
-    foreach ($store in $stores) {
-        #For each store in targeted table.
-
-    }
-    #Set Membership filter
-    $MembershipRule = ""
-
-    #Create new group
-    New-AzureADMSGroup -DisplayName "$DisplayName" -Description "$Description" -MailEnabled $MailEnabled -MailNickName "$MailNickName" -SecurityEnabled $SecurityEnabled -GroupTypes "$GroupTypes" -MembershipRule "$MembershipRule" -MembershipRuleProcessingState "$MembershipRuleProcessingState"    
-}
-#>
 Function New-DynamicGroup()
 {
     # Create multiple parameters
@@ -59,7 +38,7 @@ Function New-DynamicGroup()
                     # Check if group exists
                     if(Get-ADGroup -Filter {Name -like $DisplayName} -ErrorAction Ignore)
                     {
-                        
+                        Write-Host "$_.DisplayName already exists in Active Directory"
                     }
                     else {
                         #New-AzureADMSGroup -DisplayName "$DisplayName" -Description "$Description" -MailEnabled $MailEnabled -MailNickName "$MailNickName" -SecurityEnabled $SecurityEnabled -GroupTypes "$GroupTypes" -MembershipRule "$MembershipRule" -MembershipRuleProcessingState "$MembershipRuleProcessingState"
@@ -74,18 +53,20 @@ Function New-DynamicGroup()
         }
     
 }
-
-$DisplayName = ""
+#Optional
 $Description = ""
 $MailEnabled = $True
-$MailNickName = ""
 $SecurityEnabled = $True
 $GroupTypes = "DynamicMembership"
-$MembershipRule = ""
 $MembershipRuleProcessingState = "On"
-
-$DisplayName = "*SG*"
+#Required
+$DisplayName = "DEPT"+"_GROUPNAME"
 $MailNickName = "Test.Mail"
 $MembershipRule = "user is X"
 
-New-DynamicGroup $DisplayName $Description $MailNickName $MembershipRule
+#Set of Departments
+$Departments = @()
+#For Each department create a new ADMS group
+$Departments | ForEach-Object {
+    #New-DynamicGroup $DisplayName $Description $MailNickName $MembershipRule
+}

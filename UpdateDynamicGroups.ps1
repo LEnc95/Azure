@@ -23,7 +23,7 @@ $DateTime = Get-Date -f "yyyy-MM-dd HH-m"
 $reportLocations = "C:\Temp\DynamicGroupSet_$DateTime.csv","C:\Temp\reportHash_$DateTime.txt","C:\Temp\reportStores_$DateTime.txt","C:\Temp\reportAdds_$DateTime.txt","C:\Temp\whatIsSet_$DateTime.txt"
 
 #Get Dynamic group/groups by display name and export data to "C:\Temp\DynamicGroupSet_"+$DateTime+".csv"
-$targetedGroups = (Get-ADGroup -filter { DisplayName -like "*_DeliAndCheese" } -SearchBase "OU=O365,OU=Exchange,DC=corp,DC=gianteagle,DC=com") 
+$targetedGroups = (Get-ADGroup -filter { DisplayName -like "*_StoreLeadership" -and DisplayName -notlike "*STR*" -and DisplayName -notlike "*GRP*"} -SearchBase "OU=O365,OU=Exchange,DC=corp,DC=gianteagle,DC=com") 
 $DynamicGroupSet = foreach ($group in $targetedGroups) { Get-AzureADMSGroup -Id $group.Name.Split("_")[1] }
 $DynamicGroupSet | Export-Csv -Path "C:\Temp\DynamicGroupSet_$DateTime.csv" -Force -NoTypeInformation
 foreach ($group in $DynamicGroupSet) { $storeInfo.add($group.DisplayName.Split("_")[0], $group.Id) }
@@ -57,7 +57,7 @@ $reportHash.Keys | foreach-object {
     $out += $filterRule + $adds
     $out | Out-File -FilePath "C:\Temp\whatIsSet_$DateTime.txt" 
     $filterRule = $filterRule + $adds
-    Set-AzureADMSGroup -id $storeinfo["$_"] -membershipRule $filterRule
+    #Set-AzureADMSGroup -id $storeinfo["$_"] -membershipRule $filterRule
     $adds = $null
 }
 Write-Host "Complete" -ForegroundColor Yellow
