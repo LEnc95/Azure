@@ -19,12 +19,13 @@
          COMMENT: N/A 
     ==========================================================================
 #>
-
-# Install required modules as current user (if you're not local admin) (only needed first time).
+# Dependancy modules and packages. Uncomment on first run to make local user install.
+#Install required modules as current user (if you're not local admin) (only needed first time).
 #Install-Module -Name DCToolbox -Scope CurrentUser -Force
 #Install-Module -Name AzureADPreview -Scope CurrentUser -Force
 #Install-Package msal.ps -Scope CurrentUser -Force
-#Wait after checkout for success... unknown time needed. Immediate attempt will result in Access denied.
+
+# Wait after checkout for success... unknown time needed. Immediate attempt will result in Access denied.
 Enable-DCAzureADPIMRole -RolesToActivate "License Administrator" -Reason "Deprovisoining automation: REQ0000TEST" -UseMaximumTimeAllowed 
 
 # Fetch all users
