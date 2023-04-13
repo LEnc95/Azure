@@ -26,7 +26,7 @@
 #Install-Package msal.ps -Scope CurrentUser -Force
 
 # Wait after checkout for success... unknown time needed. Immediate attempt will result in Access denied.
-Enable-DCAzureADPIMRole -RolesToActivate "License Administrator" -Reason "Deprovisoining automation: REQ0000TEST" -UseMaximumTimeAllowed 
+Enable-DCAzureADPIMRole -RolesToActivate "License Administrator" -Reason "Offboarding deprovisoining automation" -UseMaximumTimeAllowed 
 
 # Fetch all users
 $UPN = @()
