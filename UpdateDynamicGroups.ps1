@@ -14,6 +14,7 @@
 Import-Module AzureADPreview
 
 #Init Vars
+$DynamicGroupSet = @()
 $targetedGroups = @()
 $storeInfo = @{}
 $reportHash = @{}
