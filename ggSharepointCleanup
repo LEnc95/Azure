@@ -1,0 +1,41 @@
+# Prepare the log file
+"Timestamp`tSiteUrl`tGroupName`tUserPrincipalName`tResult`tError" | Out-File -FilePath $logPath -Encoding UTF8
+
+# Load conveyed users
+$allUsers = Import-Csv $usersCsvPath
+$conveyedUsers = $allUsers | Select-Object -ExpandProperty userPrincipalName
+
+# Load SharePoint site/group mapping
+$groupMappings = Import-Csv $groupsCsvPath
+
+# Loop through mappings
+foreach ($mapping in $groupMappings) {
+    $siteUrl = $mapping.SiteUrl
+    $groupName = $mapping.GroupName
+
+    Write-Host "`nConnecting to: $siteUrl ..." -ForegroundColor Cyan
+    try {
+        Connect-PnPOnline -Url $siteUrl -Interactive
+    } catch {
+        $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+        "$timestamp`t$siteUrl`t$groupName`t`tFailed`t$_" | Out-File -FilePath $logPath -Append
+        continue
+    }
+
+    foreach ($upn in $conveyedUsers) {
+        $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+        try {
+            Remove-PnPUserFromGroup -LoginName $upn -Group $groupName -ErrorAction Stop
+            "$timestamp`t$siteUrl`t$groupName`t$upn`tRemoved`t" | Out-File -FilePath $logPath -Append
+            Write-Host "✅ Removed: $upn from '$groupName' at $siteUrl"
+        } catch {
+            "$timestamp`t$siteUrl`t$groupName`t$upn`tFailed`t$($_.Exception.Message)" | Out-File -FilePath $logPath -Append
+            Write-Warning "Could not remove $upn from '$groupName' at $siteUrl - Error: $($_.Exception.Message)"
+        }
+    }
+    
+    # Disconnect from the current site
+    Disconnect-PnPOnline
+}
+
+Write-Host "`nScript completed. Check the log file at: $logPath" -ForegroundColor Green 

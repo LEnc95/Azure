@@ -47,7 +47,7 @@ foreach ($store in $storeinfo.Keys) {
         }
     }
     foreach ($ExplicitAddition in $ExplicitAdditions) {
-        $allAdditions += " -or (user.userPrincipalname -eq " + '"' + $ExplicitAddition + '"' + ")"
+        $allAdditions += " -or (user.userPrincipalName -eq " + '"' + $ExplicitAddition + '"' + ")"
     }
     #Maybe set here
     if ($store -eq "3230") {
@@ -69,9 +69,14 @@ $reportHash.Keys | foreach-object {
     $out += $filterRule + $adds
     $out | Out-File -FilePath C:\Temp\whatIsSet.txt 
     $filterRule = $filterRule + $adds
-    Set-AzureADMSGroup -id $storeinfo["$_"] -membershipRule $filterRule
-    $storeinfo["$_"]
-    $filterRule
+    try {
+        Set-AzureADMSGroup -Id $storeinfo["$_"] -MembershipRule $filterRule -MembershipRuleProcessingState "On"
+        $post = Get-AzureADMSGroup -Id $storeinfo["$_"]
+        ("STORE=$_`nID=" + $storeinfo["$_"] + "`nNEW=" + $filterRule + "`nPOSTSET=" + $post.MembershipRule + "`n") | Out-File -FilePath C:\Temp\whatIsSet.txt -Append
+    }
+    catch {
+        Write-Error "Failed to update MembershipRule for store $_ (" + $storeinfo["$_"] + "): " + $_
+    }
 
     <#
     [uri]$SignInsUrl = "https://graph.microsoft.com/v1.0/auditLogs/signIns?`$filter=userPrincipalName eq '$_'"

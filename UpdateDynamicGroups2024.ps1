@@ -75,7 +75,7 @@ foreach ($store in $storeInfo.Keys) {
         }
 
         foreach ($explicitAddition in $explicitAdditions) {
-            $allAdditions += "-or (user.userPrincipalName -eq "+$explicitAddition+")"
+            $allAdditions += " -or (user.userPrincipalName -eq `"$explicitAddition`")"
         }
 
         $reportHash[$store] = $allAdditions -join " "
@@ -111,8 +111,15 @@ foreach ($store in $reportHash.Keys) {
         Write-Error "Failed to write final membership rules for store " + $store + ":" + $_
     }
 
-    # Uncomment to set the group membership rule in Azure AD
-    # Set-AzureADMSGroup -Id $storeInfo[$store] -MembershipRule $finalRule
+    # Set the group membership rule in Azure AD and verify
+    try {
+        Set-AzureADMSGroup -Id $storeInfo[$store] -MembershipRule $finalRule -MembershipRuleProcessingState "On"
+        $postSet = Get-AzureADMSGroup -Id $storeInfo[$store]
+        ("STORE=$store`nID=" + $storeInfo[$store] + "`nNEW=$finalRule`nPOSTSET=" + $postSet.MembershipRule + "`n") | Out-File -FilePath $reportLocations[4] -Append
+    }
+    catch {
+        Write-Error "Failed to update MembershipRule for store " + $store + " (" + $storeInfo[$store] + "): " + $_
+    }
 }
 
 # Completion Message
