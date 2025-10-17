@@ -30,10 +30,18 @@ $AzureHeaders          = @{'Authorization'="$($oAuth.token_type) $($oAuth.access
 #endregion Authentication
 #>
 
+# Exclude specific locations from any update
+$excludedLocations = @("9501")
+
 $targetedGroups = (Get-ADGroup -filter { DisplayName -like "*_CurbsideExpress" } -SearchBase "OU=O365,OU=Exchange,DC=corp,DC=gianteagle,DC=com") 
 $DynamicGroupSet = foreach ($group in $targetedGroups) { Get-AzureADMSGroup -Id $group.Name.Split("_")[1] }
 $DynamicGroupSet | Export-Csv -Path C:\Temp\DynamicGroupSet.csv -Force -NoTypeInformation
-foreach ($group in $DynamicGroupSet) { $storeInfo.add($group.DisplayName.Split("_")[0], $group.Id) }
+foreach ($group in $DynamicGroupSet) {
+    $store = $group.DisplayName.Split("_")[0]
+    if (-not ($excludedLocations -contains $store)) {
+        $storeInfo.add($store, $group.Id)
+    }
+}
 foreach ($store in $storeinfo.Keys) {
     $allAdditions = @()
     $ExplicitAdditions = @()
