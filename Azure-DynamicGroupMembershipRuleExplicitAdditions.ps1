@@ -57,10 +57,6 @@ foreach ($store in $storeinfo.Keys) {
     foreach ($ExplicitAddition in $ExplicitAdditions) {
         $allAdditions += " -or (user.userPrincipalName -eq " + '"' + $ExplicitAddition + '"' + ")"
     }
-    #Maybe set here
-    if ($store -eq "3230") {
-        "$store - $allAdditions"
-    }
     $reportHash.Add($store, $allAdditions)
     #$x++
 }
